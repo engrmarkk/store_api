@@ -1,4 +1,4 @@
-# import all dependencies
+# import the dependencies
 from flask.views import MethodView
 from flask_smorest import abort, Blueprint
 from extensions import db
@@ -61,16 +61,17 @@ class login(MethodView):
 
         # if the user exist and also the password matches the one in the database
         if user and pbkdf2_sha256.verify(password, user.password):
-            # create an access token for the user with the user's id as the identity
+            # create an access and a refresh token for the user with the user's id as the identity
             token = create_access_token(identity=user.id)
             refresh_token = create_refresh_token(identity=user.id)
 
-            # return the token created
+            # return the tokens created
             return {"access_token": token, "refresh_token": refresh_token}
         # if the user doesn't exist in the database, then abort the process
         abort(401, message='Invalid details')
 
 
+# this is an endpoint that uses the refresh token to generate a new access token
 @blp.route("/refresh")
 class TokenRefresh(MethodView):
     @jwt_required(refresh=True)
@@ -81,12 +82,18 @@ class TokenRefresh(MethodView):
         return {"access_token": new_token}
 
 
+# This is the endpoint for logout
 @blp.route("/logout")
 class Logout(MethodView):
+    # the jwt_required indicates that the access token will be required to log out
     @jwt_required()
     def post(self):
+        # get the current user's token
         jti = get_jwt()['jti']
+        # send the token to the BLOCKLIST set in the blocklist.py file
+        # this will revoke the token. A new access token will be created for you when you log in again
         BLOCKLIST.add(jti)
+        # return this message for a successful logout
         return {"message": "Successfully logged out"}
 
 
@@ -134,5 +141,5 @@ class all_users(MethodView):
 
 """
 The explanation here will help in understanding the codes in the
-store and item file
+stores and items file
 """
