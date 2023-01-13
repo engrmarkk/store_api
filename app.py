@@ -3,6 +3,7 @@ from routes import UserBlueprint, StoreBlueprint, ItemBlueprint
 import os
 from blocklist import BLOCKLIST
 from flask import jsonify
+from datetime import timedelta
 
 
 def create_app():
@@ -24,17 +25,23 @@ def create_app():
 
     # the secret key configuration jwt
     app.config["JWT_SECRET_KEY"] = "overstuffed"
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 
+    # this is going to check the BLOCKLIST set if the token you're trying to use exist in the set
+    # if the token is present in the set, it will return a 'token revoked' message
     @jwt.token_in_blocklist_loader
     def check_if_token_in_blocklist(jwt_header, jwt_payload):
         return jwt_payload['jti'] in BLOCKLIST
 
+    # this is going to be called when the access token expires
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
         return (
             jsonify({"message": "The Token has Expired.", "error": "token_expired"}), 401
         )
 
+    # this is going to be called when the access token is invalid
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
         return (
@@ -44,6 +51,7 @@ def create_app():
             }), 401
         )
 
+    # this is going to be called when you fail to provide an access token
     @jwt.unauthorized_loader
     def missing_token_callback(error):
         return (
